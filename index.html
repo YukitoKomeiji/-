@@ -38,7 +38,7 @@
     <div class="card">
       <h1>レイ運転代行｜ドライバー締め作業 計算ツール</h1>
       <p class="muted" style="margin:6px 0 0">GitHub Pagesで配信可能なスタンドアロン版。入力：売上・経費・決済。自動計算：<b>2種給料</b>・<b>1種給料</b>・<b>残金</b>。ポイントカードは<b>1枚=500円</b>で控除します。</p>
-      <p class="notice">URLパラメータ <code>?shift=full|middle|half</code> と <code>?pair=2_1|2_2|2_d</code> に対応。入力はブラウザの<b>ローカル保存</b>（端末ごと）で自動復元されます。</p>
+      <p class="notice">給料計算は100円単位で<b>切り上げ</b>処理されます（例：7,581円 → 7,600円）。</p>
     </div>
 
     <div class="card">
@@ -94,8 +94,6 @@
       <div class="row" style="margin-top:12px">
         <button class="btn primary" onclick="recalc()">計算する</button>
         <button class="btn" onclick="clearAll()">入力クリア</button>
-        <button class="btn" onclick="savePreset()">この設定を保存</button>
-        <span class="muted" id="hint"></span>
       </div>
     </div>
 
@@ -105,156 +103,64 @@
         <div class="kpi">
           <div class="muted">2種給料（配車含む）</div>
           <div class="out mono" id="out2">0 円</div>
-          <div class="muted" id="out2detail"></div>
         </div>
         <div class="kpi">
           <div class="muted">1種給料</div>
           <div class="out mono" id="out1">0 円</div>
-          <div class="muted" id="out1detail"></div>
         </div>
         <div class="kpi">
           <div class="muted">残金</div>
           <div class="out mono" id="remain">0 円</div>
-          <div class="muted" id="remainDetail"></div>
         </div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>内訳（参考）</h2>
-      <div class="grid cols-3 mono">
-        <div>売上：<b id="vSales">0</b> 円</div>
-        <div>ポイントカード金額：<b id="vPoint">0</b> 円</div>
-        <div>控除合計：<b id="vDeduct">0</b> 円</div>
-      </div>
-      <p class="muted" style="margin-top:8px">※ 給料は「売上×率（10円単位切り上げ）」と「最低保証（人数×シフト別）」を比較し、高い方を採用します。</p>
-    </div>
-
-    <div class="footer">© レイ運転代行｜締め作業ヘルパー v1.1（GitHub Pages対応・ローカル保存）</div>
+    <div class="footer">© レイ運転代行｜締め作業ヘルパー v1.3（100円切り上げ対応）</div>
   </div>
 
 <script>
-// ===== 共通ユーティリティ =====
 const $ = (id)=>document.getElementById(id);
 const toInt = (v)=> Math.max(0, Math.floor(Number(v||0)));
-const ceil10 = (v)=> Math.ceil(v/10)*10;
-const qs = new URLSearchParams(location.search);
+const ceil100 = (v)=> Math.ceil(v/100)*100; // ← 100円単位切り上げ
 
-// ===== 最低保証額 =====
-const MIN2 = {full:7200, middle:5400, half:3600}; // 2種(配車)
-const MIN1 = {full:6400, middle:4800, half:3200}; // 1種
+const MIN2 = {full:7200, middle:5400, half:3600};
+const MIN1 = {full:6400, middle:4800, half:3200};
 
-// ===== 人員構成取得 =====
 function getPairCounts(){
-  const pair = document.querySelector('input[name="pair"]:checked').value; // 2_1, 2_2, 2_d
-  if(pair==='2_1') return {n2:1, n1:1};
-  if(pair==='2_2') return {n2:2, n1:0};
-  if(pair==='2_d') return {n2:2, n1:0}; // 配車は2種扱い
-  return {n2:1, n1:1};
+  const pair = document.querySelector('input[name="pair"]:checked').value;
+  if(pair==='2_1') return {n2:1,n1:1};
+  if(pair==='2_2') return {n2:2,n1:0};
+  if(pair==='2_d') return {n2:2,n1:0};
+  return {n2:1,n1:1};
 }
 
-// ===== 計算本体 =====
 function recalc(){
-  const sales = toInt($('sales').value);
-  const gas = toInt($('gas').value);
-  const credit = toInt($('credit').value);
-  const paypay = toInt($('paypay').value);
-  const pointCnt = toInt($('pointCnt').value);
-  const aircle = toInt($('aircle').value);
-  const shift = document.querySelector('input[name="shift"]:checked').value; // full/middle/half
-  const {n2, n1} = getPairCounts();
+  const sales=toInt($('sales').value);
+  const gas=toInt($('gas').value);
+  const credit=toInt($('credit').value);
+  const paypay=toInt($('paypay').value);
+  const pointCnt=toInt($('pointCnt').value);
+  const aircle=toInt($('aircle').value);
+  const shift=document.querySelector('input[name="shift"]:checked').value;
+  const {n2,n1}=getPairCounts();
 
-  // 給料（率）: 2種(配車)=30%, 1種=25% （10円単位切り上げ）
-  const rate2 = ceil10(sales * 0.30);
-  const rate1 = ceil10(sales * 0.25);
+  const rate2 = ceil100(sales*0.30);
+  const rate1 = ceil100(sales*0.25);
 
-  // 採用額（高い方）×人数分
-  const wage2 = Math.max(rate2, MIN2[shift]) * n2;
-  const wage1 = Math.max(rate1, MIN1[shift]) * n1;
+  const wage2=Math.max(rate2,MIN2[shift])*n2;
+  const wage1=Math.max(rate1,MIN1[shift])*n1;
 
-  // ポイントカード → 1枚=500円
-  const pointAmt = pointCnt * 500;
+  const pointAmt=pointCnt*500;
+  const deduct=gas+wage2+wage1+credit+paypay+pointAmt+aircle;
+  const remain=sales-deduct;
 
-  // 残金 = 売上 − (ガソリン, 2種給料, 1種給料, クレジット, ペイペイ, ポイント, エアクルネット)
-  const deduct = gas + wage2 + wage1 + credit + paypay + pointAmt + aircle;
-  const remain = sales - deduct;
-
-  // 出力
-  $('out2').textContent = wage2.toLocaleString() + ' 円';
-  $('out1').textContent = wage1.toLocaleString() + ' 円';
-  $('remain').textContent = remain.toLocaleString() + ' 円';
-  $('out2detail').textContent = `2種人数 ${n2}名｜率 ${rate2.toLocaleString()}円/人 と 最低保証 ${MIN2[shift].toLocaleString()}円/人 の高い方×人数`;
-  $('out1detail').textContent = `1種人数 ${n1}名｜率 ${rate1.toLocaleString()}円/人 と 最低保証 ${MIN1[shift].toLocaleString()}円/人 の高い方×人数`;
-
-  $('vSales').textContent = sales.toLocaleString();
-  $('vPoint').textContent = pointAmt.toLocaleString();
-  $('vDeduct').textContent = deduct.toLocaleString();
-
-  $('hint').textContent = sales>0? `計算しました（勤務:${labelShift(shift)}／構成:${labelPair(n2,n1)}）` : '売上を入力してください';
-
-  saveLocal();
+  $('out2').textContent=wage2.toLocaleString()+' 円';
+  $('out1').textContent=wage1.toLocaleString()+' 円';
+  $('remain').textContent=remain.toLocaleString()+' 円';
 }
 
-function clearAll(){
-  ['sales','gas','credit','paypay','pointCnt','aircle'].forEach(id=>$(id).value='0');
-  $('sales').value='';
-  ['out2','out1','remain','out2detail','out1detail','vSales','vPoint','vDeduct','hint'].forEach(id=>$(id).textContent='');
-  saveLocal();
-}
-
-function labelShift(s){return s==='full'?'フル':(s==='middle'?'ミドル':'ハーフ');}
-function labelPair(n2,n1){
-  if(n2===1&&n1===1) return '2種+1種';
-  if(n2===2&&n1===0) return '2種+2種/2種+配車';
-  return '—';
-}
-
-// ===== ローカル保存（端末単位） =====
-const KEY = 'rei-daiko:shime-v1.1';
-function saveLocal(){
-  const data = {
-    shift: document.querySelector('input[name="shift"]:checked')?.value,
-    pair: document.querySelector('input[name="pair"]:checked')?.value,
-    sales: $('sales').value, gas: $('gas').value, credit: $('credit').value,
-    paypay: $('paypay').value, pointCnt: $('pointCnt').value, aircle: $('aircle').value
-  };
-  try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){}
-}
-function loadLocal(){
-  try{ const raw = localStorage.getItem(KEY); if(!raw) return; const d = JSON.parse(raw);
-    if(d.shift) document.querySelector(`input[name="shift"][value="${d.shift}"]`).checked = true;
-    if(d.pair) document.querySelector(`input[name="pair"][value="${d.pair}"]`).checked = true;
-    ['sales','gas','credit','paypay','pointCnt','aircle'].forEach(id=>{ if(d[id]!==undefined) $(id).value = d[id]; });
-  }catch(e){}
-}
-
-// 手動プリセット保存（入力と選択を保持）
-function savePreset(){ saveLocal(); $('hint').textContent='この端末に保存しました'; }
-
-// ===== URLパラメータで初期化 =====
-function applyQuery(){
-  const s = qs.get('shift'); if(['full','middle','half'].includes(s)) document.querySelector(`input[name="shift"][value="${s}"]`).checked = true;
-  const p = qs.get('pair'); if(['2_1','2_2','2_d'].includes(p)) document.querySelector(`input[name="pair"][value="${p}"]`).checked = true;
-}
-
-// ===== 初期化 =====
-(function init(){
-  // デフォルト選択
-  document.getElementById('t-full').checked = true;
-  document.getElementById('p-21').checked = true;
-
-  applyQuery();
-  loadLocal();
-
-  // 入力変更時に都度保存
-  document.querySelectorAll('input,select').forEach(el=>{
-    el.addEventListener('input', saveLocal);
-    el.addEventListener('change', saveLocal);
-  });
-
-  // 起動時に一度計算（値があれば）
-  if($('sales').value){ recalc(); }
-})();
+function clearAll(){['sales','gas','credit','paypay','pointCnt','aircle'].forEach(id=>$(id).value='');
+  ['out2','out1','remain'].forEach(id=>$(id).textContent='0 円');}
 </script>
 </body>
 </html>
