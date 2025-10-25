@@ -37,10 +37,9 @@
   <div class="wrap">
     <div class="card">
       <h1>ドライバー締め作業 計算ツール</h1>
-      <!-- 非表示化：ここから -->
+      <!-- 説明は非表示のまま -->
       <p class="muted" style="margin:6px 0 0; display:none;">GitHub Pagesで配信可能なスタンドアロン版。入力：売上・経費・決済。自動計算：<b>2種給料</b>・<b>1種給料</b>・<b>残金</b>。ポイントカードは<b>1枚=500円</b>で控除します。</p>
       <p class="notice" style="display:none">給料計算は100円単位で<b>切り上げ</b>処理されます（例：7,581円 → 7,600円）。</p>
-      <!-- 非表示化：ここまで -->
     </div>
 
     <div class="card">
@@ -85,7 +84,8 @@
           <input type="number" id="paypay" min="0" step="1" value="0" />
         </div>
         <div>
-          <label>ポイントカード（枚）<span class="muted">※1枚=500円</span></label>
+          <!-- 補足文削除済み -->
+          <label>ポイントカード（枚）</label>
           <input type="number" id="pointCnt" min="0" step="1" value="0" />
         </div>
         <div>
@@ -103,12 +103,12 @@
       <h2>結果</h2>
       <div class="grid cols-3">
         <div class="kpi">
-          <div class="muted">2種給料（配車含む）</div>
-          <div class="out mono" id="out2">0 円</div>
+          <div class="muted" id="labL">2種給料</div>
+          <div class="out mono" id="outL">0 円</div>
         </div>
         <div class="kpi">
-          <div class="muted">1種給料</div>
-          <div class="out mono" id="out1">0 円</div>
+          <div class="muted" id="labR">1種給料</div>
+          <div class="out mono" id="outR">0 円</div>
         </div>
         <div class="kpi">
           <div class="muted">残金</div>
@@ -128,12 +128,11 @@ const ceil100 = (v)=> Math.ceil(v/100)*100; // ← 100円単位切り上げ
 const MIN2 = {full:7200, middle:5400, half:3600};
 const MIN1 = {full:6400, middle:4800, half:3200};
 
-function getPairCounts(){
-  const pair = document.querySelector('input[name="pair"]:checked').value;
-  if(pair==='2_1') return {n2:1,n1:1};
-  if(pair==='2_2') return {n2:2,n1:0};
-  if(pair==='2_d') return {n2:2,n1:0};
-  return {n2:1,n1:1};
+function getPair(){
+  return document.querySelector('input[name="pair"]:checked').value;
+}
+function getShift(){
+  return document.querySelector('input[name="shift"]:checked').value;
 }
 
 function recalc(){
@@ -143,26 +142,56 @@ function recalc(){
   const paypay=toInt($('paypay').value);
   const pointCnt=toInt($('pointCnt').value);
   const aircle=toInt($('aircle').value);
-  const shift=document.querySelector('input[name="shift"]:checked').value;
-  const {n2,n1}=getPairCounts();
+  const shift=getShift();
+  const pair=getPair();
 
+  // 1人あたりの基準額（切り上げ後・最低保証反映）
   const rate2 = ceil100(sales*0.30);
   const rate1 = ceil100(sales*0.25);
+  const base2 = Math.max(rate2, MIN2[shift]);
+  const base1 = Math.max(rate1, MIN1[shift]);
 
-  const wage2=Math.max(rate2,MIN2[shift])*n2;
-  const wage1=Math.max(rate1,MIN1[shift])*n1;
+  // 表示用（常に1人分を表示）
+  let labL='2種給料', labR='1種給料';
+  let outLeft=base2, outRight=base1;
 
+  // 控除用の人数
+  let n2=1, n1=1;
+
+  if (pair==='2_2'){
+    labL='2種給料'; labR='2種給料';
+    outLeft=base2; outRight=base2;
+    n2=2; n1=0;
+  } else if (pair==='2_d'){
+    labL='2種給料'; labR='配車給料';
+    outLeft=base2; outRight=base2; // 配車も同額扱い
+    n2=2; n1=0;
+  } else { // 2_1
+    labL='2種給料'; labR='1種給料';
+    outLeft=base2; outRight=base1;
+    n2=1; n1=1;
+  }
+
+  // 残金計算は人数分で控除
   const pointAmt=pointCnt*500;
-  const deduct=gas+wage2+wage1+credit+paypay+pointAmt+aircle;
+  const totalWage = base2*n2 + base1*n1;
+  const deduct=gas + totalWage + credit + paypay + pointAmt + aircle;
   const remain=sales-deduct;
 
-  $('out2').textContent=wage2.toLocaleString()+' 円';
-  $('out1').textContent=wage1.toLocaleString()+' 円';
-  $('remain').textContent=remain.toLocaleString()+' 円';
+  // 出力
+  $('labL').textContent = labL;
+  $('labR').textContent = labR;
+  $('outL').textContent = outLeft.toLocaleString()+' 円';
+  $('outR').textContent = outRight.toLocaleString()+' 円';
+  $('remain').textContent = remain.toLocaleString()+' 円';
 }
 
-function clearAll(){['sales','gas','credit','paypay','pointCnt','aircle'].forEach(id=>$(id).value='');
-  ['out2','out1','remain'].forEach(id=>$(id).textContent='0 円');}
+function clearAll(){
+  ['sales','gas','credit','paypay','pointCnt','aircle'].forEach(id=>$(id).value='');
+  ['outL','outR','remain'].forEach(id=>$(id).textContent='0 円');
+  $('labL').textContent='2種給料';
+  $('labR').textContent='1種給料';
+}
 </script>
 </body>
 </html>
