@@ -37,7 +37,7 @@
   <div class="wrap">
     <div class="card">
       <h1>ドライバー締め作業 計算ツール</h1>
-      <!-- 説明は非表示のまま -->
+      <!-- 説明は非表示のまま保持 -->
       <p class="muted" style="margin:6px 0 0; display:none;">GitHub Pagesで配信可能なスタンドアロン版。入力：売上・経費・決済。自動計算：<b>2種給料</b>・<b>1種給料</b>・<b>残金</b>。ポイントカードは<b>1枚=500円</b>で控除します。</p>
       <p class="notice" style="display:none">給料計算は100円単位で<b>切り上げ</b>処理されます（例：7,581円 → 7,600円）。</p>
     </div>
@@ -84,7 +84,7 @@
           <input type="number" id="paypay" min="0" step="1" value="0" />
         </div>
         <div>
-          <!-- 補足文削除済み -->
+          <!-- 補足文を削除済み -->
           <label>ポイントカード（枚）</label>
           <input type="number" id="pointCnt" min="0" step="1" value="0" />
         </div>
@@ -99,13 +99,13 @@
       </div>
     </div>
 
-   <div class="card">
-  <h2>
-    結果
-    <span id="resultInfo" class="muted" style="font-size:14px; margin-left:8px;"></span>
-  </h2>
-  <div class="grid cols-3">
-
+    <div class="card">
+      <h2>
+        結果
+        <!-- ここに勤務時間＋人員構成を表示 -->
+        <span id="resultInfo" class="muted" style="font-size:14px; margin-left:8px;"></span>
+      </h2>
+      <div class="grid cols-3">
         <div class="kpi">
           <div class="muted" id="labL">2種給料</div>
           <div class="out mono" id="outL">0 円</div>
@@ -121,7 +121,7 @@
       </div>
     </div>
 
-    <div class="footer">© レイ運転代行｜締め作業ヘルパー v1.4</div>
+    <div class="footer">© レイ運転代行｜締め作業ヘルパー v1.4.1</div>
   </div>
 
 <script>
@@ -132,12 +132,8 @@ const ceil100 = (v)=> Math.ceil(v/100)*100; // ← 100円単位切り上げ
 const MIN2 = {full:7200, middle:5400, half:3600};
 const MIN1 = {full:6400, middle:4800, half:3200};
 
-function getPair(){
-  return document.querySelector('input[name="pair"]:checked').value;
-}
-function getShift(){
-  return document.querySelector('input[name="shift"]:checked').value;
-}
+function getPair(){ return document.querySelector('input[name="pair"]:checked').value; }
+function getShift(){ return document.querySelector('input[name="shift"]:checked').value; }
 
 function recalc(){
   const sales=toInt($('sales').value);
@@ -149,13 +145,13 @@ function recalc(){
   const shift=getShift();
   const pair=getPair();
 
-  // 1人あたりの基準額（切り上げ後・最低保証反映）
+  // 1人あたりの基準額（切り上げ＆最低保証反映）
   const rate2 = ceil100(sales*0.30);
   const rate1 = ceil100(sales*0.25);
   const base2 = Math.max(rate2, MIN2[shift]);
   const base1 = Math.max(rate1, MIN1[shift]);
 
-  // 表示用（常に1人分を表示）
+  // 表示用（1人分）
   let labL='2種給料', labR='1種給料';
   let outLeft=base2, outRight=base1;
 
@@ -176,7 +172,7 @@ function recalc(){
     n2=1; n1=1;
   }
 
-  // 残金計算は人数分で控除
+  // 残金（人数分で控除）
   const pointAmt=pointCnt*500;
   const totalWage = base2*n2 + base1*n1;
   const deduct=gas + totalWage + credit + paypay + pointAmt + aircle;
@@ -188,6 +184,11 @@ function recalc(){
   $('outL').textContent = outLeft.toLocaleString()+' 円';
   $('outR').textContent = outRight.toLocaleString()+' 円';
   $('remain').textContent = remain.toLocaleString()+' 円';
+
+  // 見出し横に勤務条件（勤務時間＋人員構成）を表示
+  const shiftLabel = document.querySelector('label[for="t-'+shift+'"]').textContent;
+  const pairLabel  = document.querySelector('label[for="p-'+pair+'"]').textContent;
+  $('resultInfo').textContent = `（${shiftLabel}・${pairLabel}）`;
 }
 
 function clearAll(){
@@ -195,6 +196,7 @@ function clearAll(){
   ['outL','outR','remain'].forEach(id=>$(id).textContent='0 円');
   $('labL').textContent='2種給料';
   $('labR').textContent='1種給料';
+  // 表示中の勤務条件は保持（次回計算時に更新）
 }
 </script>
 </body>
