@@ -102,7 +102,6 @@
     <div class="card">
       <h2>
         結果
-        <!-- ここに勤務時間＋人員構成を表示 -->
         <span id="resultInfo" class="muted" style="font-size:14px; margin-left:8px;"></span>
       </h2>
       <div class="grid cols-3">
@@ -121,13 +120,13 @@
       </div>
     </div>
 
-    <div class="footer">© レイ運転代行｜締め作業ヘルパー v1.4.1</div>
+    <div class="footer">© レイ運転代行｜締め作業ヘルパー v1.4.2</div>
   </div>
 
 <script>
 const $ = (id)=>document.getElementById(id);
 const toInt = (v)=> Math.max(0, Math.floor(Number(v||0)));
-const ceil100 = (v)=> Math.ceil(v/100)*100; // ← 100円単位切り上げ
+const ceil100 = (v)=> Math.ceil(v/100)*100; // 100円単位切り上げ
 
 const MIN2 = {full:7200, middle:5400, half:3600};
 const MIN1 = {full:6400, middle:4800, half:3200};
@@ -151,7 +150,7 @@ function recalc(){
   const base2 = Math.max(rate2, MIN2[shift]);
   const base1 = Math.max(rate1, MIN1[shift]);
 
-  // 表示用（1人分）
+  // 表示用（常に1人分）
   let labL='2種給料', labR='1種給料';
   let outLeft=base2, outRight=base1;
 
@@ -185,10 +184,13 @@ function recalc(){
   $('outR').textContent = outRight.toLocaleString()+' 円';
   $('remain').textContent = remain.toLocaleString()+' 円';
 
-  // 見出し横に勤務条件（勤務時間＋人員構成）を表示
-  const shiftLabel = document.querySelector('label[for="t-'+shift+'"]').textContent;
-  const pairLabel  = document.querySelector('label[for="p-'+pair+'"]').textContent;
-  $('resultInfo').textContent = `（${shiftLabel}・${pairLabel}）`;
+  // ★ 勤務時間＋人員構成を見出し横に表示（idに正しくマップ）
+  const pairIdMap = {'2_1':'p-21','2_2':'p-22','2_d':'p-2d'};
+  const shiftId = 't-'+shift;        // t-full / t-mid / t-half
+  const pairId  = pairIdMap[pair];   // p-21 / p-22 / p-2d
+  const shiftLabel = document.querySelector(`label[for="${shiftId}"]`)?.textContent || '';
+  const pairLabel  = document.querySelector(`label[for="${pairId}"]`)?.textContent  || '';
+  $('resultInfo').textContent = (shiftLabel && pairLabel) ? `（${shiftLabel}・${pairLabel}）` : '';
 }
 
 function clearAll(){
@@ -196,7 +198,7 @@ function clearAll(){
   ['outL','outR','remain'].forEach(id=>$(id).textContent='0 円');
   $('labL').textContent='2種給料';
   $('labR').textContent='1種給料';
-  // 表示中の勤務条件は保持（次回計算時に更新）
+  $('resultInfo').textContent='';
 }
 </script>
 </body>
